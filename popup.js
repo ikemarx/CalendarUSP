@@ -25,8 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
         d.setHours(hours);
         d.setMinutes(minutes);
         d.setSeconds(0);
-        
-        // Formato YYYYMMDDTHHMMSS
         return d.toISOString().replace(/[-:]/g, '').split('.')[0];
     };
 
@@ -48,36 +46,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Lida com o clique no botão de extração de forma assíncrona
     extractBtn.addEventListener('click', async () => {
-        errorMessage.classList.add('hidden');
+        // Esconde a mensagem de erro e atualiza o status
+        errorMessage.style.display = 'none';
         statusMessage.textContent = 'Procurando a tabela na página...';
 
         try {
-            // Pega a aba ativa usando a API 'browser'
             let [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
-            // Injeta o script de conteúdo
             await browser.scripting.executeScript({
                 target: { tabId: tab.id },
                 files: ['content.js']
             });
             
-            // Envia a mensagem e aguarda a resposta
             const response = await browser.tabs.sendMessage(tab.id, { action: "extract" });
 
             if (response && response.success && response.data.length > 0) {
                 extractedEvents = response.data;
-                statusMessage.classList.add('hidden');
-                resultsContainer.classList.remove('hidden');
-                extractBtn.classList.add('hidden');
+                // Esconde a mensagem de status e o botão de extrair
+                statusMessage.style.display = 'none';
+                extractBtn.style.display = 'none';
+                // Mostra o contêiner de resultados
+                resultsContainer.style.display = 'block'; 
                 displayResults(extractedEvents);
             } else {
-                errorMessage.classList.remove('hidden');
+                // Mostra a mensagem de erro
+                errorMessage.style.display = 'block';
                 statusMessage.textContent = 'Não foi possível extrair os dados.';
             }
         } catch (error) {
             console.error("Erro na extensão:", error);
             errorMessage.textContent = `Erro ao executar o script: ${error.message}`;
-            errorMessage.classList.remove('hidden');
+            // Mostra a mensagem de erro
+            errorMessage.style.display = 'block';
             statusMessage.textContent = 'Falha na extração.';
         }
     });
@@ -92,22 +92,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
         events.forEach(event => {
             const li = document.createElement('li');
-            li.className = 'p-3 bg-white rounded-lg shadow-sm border border-gray-200';
-            
+            li.style.padding = '0.75rem';
+            li.style.borderBottom = '1px solid #ccc';
+
             const eventDayIndex = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'].indexOf(event.day);
             const eventDate = new Date(firstMonday);
             eventDate.setDate(firstMonday.getDate() + (eventDayIndex - 1));
 
             const googleLink = createGoogleCalendarLink(event, eventDate);
 
-            li.innerHTML = `
-                <p class="font-bold text-blue-800">${event.title}</p>
-                <p class="text-sm text-gray-600">${event.day}: ${event.startTime} - ${event.endTime}</p>
-                <p class="text-sm text-gray-500">${event.location}</p>
-                <a href="${googleLink}" target="_blank" class="inline-block mt-2 text-sm bg-yellow-400 text-gray-800 font-semibold py-1 px-3 rounded-md hover:bg-yellow-500 transition">
-                    Adicionar ao Google Agenda
-                </a>
-            `;
+            // Cria os elementos de forma segura
+            const titleP = document.createElement('p');
+            titleP.style.fontWeight = 'bold';
+            titleP.textContent = event.title;
+
+            const timeP = document.createElement('p');
+            timeP.textContent = `${event.day}: ${event.startTime} - ${event.endTime}`;
+
+            const locationP = document.createElement('p');
+            locationP.textContent = event.location;
+
+            const linkA = document.createElement('a');
+            linkA.href = googleLink;
+            linkA.target = '_blank';
+            linkA.textContent = 'Adicionar ao Google Agenda';
+            linkA.style.marginTop = '0.5rem';
+            linkA.style.display = 'inline-block';
+
+            li.appendChild(titleP);
+            li.appendChild(timeP);
+            li.appendChild(locationP);
+            li.appendChild(linkA);
+            
             classList.appendChild(li);
         });
     };
