@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let extractedEvents = [];
 
-    // Função para converter nomes de dias da semana para o formato do iCalendar
     const getDayInitial = (day) => {
         const map = {
             'Segunda-feira': 'MO', 'Terça-feira': 'TU', 'Quarta-feira': 'WE',
@@ -18,8 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return map[day] || '';
     };
 
-    // Função para formatar data e hora para o padrão do iCalendar e Google Calendar
-    const formatDateTime = (date, time) => {
+    const formatDateTimeICS = (date, time) => {
         const [hours, minutes] = time.split(':');
         const d = new Date(date);
         d.setHours(hours);
@@ -27,26 +25,39 @@ document.addEventListener('DOMContentLoaded', () => {
         d.setSeconds(0);
         return d.toISOString().replace(/[-:]/g, '').split('.')[0];
     };
+    
+    const formatDateForLink = (date) => {
+        return date.toISOString().split('T')[0];
+    }
 
-    // Gera o link para o Google Agenda
+    // --- Funções para criar links para diferentes calendários ---
+
     const createGoogleCalendarLink = (event, firstDay) => {
         const baseUrl = 'https://www.google.com/calendar/render?action=TEMPLATE';
         const title = encodeURIComponent(event.title);
         const details = encodeURIComponent(event.description);
         const location = encodeURIComponent(event.location);
-        
-        const startDate = formatDateTime(firstDay, event.startTime);
-        const endDate = formatDateTime(firstDay, event.endTime);
-
+        const startDate = formatDateTimeICS(firstDay, event.startTime);
+        const endDate = formatDateTimeICS(firstDay, event.endTime);
         const dayInitial = getDayInitial(event.day);
         const rrule = `FREQ=WEEKLY;BYDAY=${dayInitial};COUNT=18`;
-
         return `${baseUrl}&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}&recur=RRULE:${rrule}`;
     };
 
-    // Lida com o clique no botão de extração de forma assíncrona
+    const createOutlookCalendarLink = (event, firstDay) => {
+        const baseUrl = 'https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent';
+        const title = encodeURIComponent(event.title);
+        const details = encodeURIComponent(`${event.description}\n\nAtenção: configure a recorrência para semanalmente, terminando em aprox. 18 semanas.`);
+        const location = encodeURIComponent(event.location);
+        const startDate = `${formatDateForLink(firstDay)}T${event.startTime}:00`;
+        const endDate = `${formatDateForLink(firstDay)}T${event.endTime}:00`;
+        return `${baseUrl}&subject=${title}&startdt=${startDate}&enddt=${endDate}&body=${details}&location=${location}`;
+    };
+
+    // ONDE O CÓDIGO MUDOU: Função para gerar .ics de evento único foi removida.
+
+    // Lida com o clique no botão de extração
     extractBtn.addEventListener('click', async () => {
-        // Esconde a mensagem de erro e atualiza o status
         errorMessage.style.display = 'none';
         statusMessage.textContent = 'Procurando a tabela na página...';
 
@@ -62,21 +73,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response && response.success && response.data.length > 0) {
                 extractedEvents = response.data;
-                // Esconde a mensagem de status e o botão de extrair
                 statusMessage.style.display = 'none';
                 extractBtn.style.display = 'none';
-                // Mostra o contêiner de resultados
                 resultsContainer.style.display = 'block'; 
                 displayResults(extractedEvents);
             } else {
-                // Mostra a mensagem de erro
                 errorMessage.style.display = 'block';
                 statusMessage.textContent = 'Não foi possível extrair os dados.';
             }
         } catch (error) {
             console.error("Erro na extensão:", error);
-            errorMessage.textContent = `Erro ao executar o script: ${error.message}`;
-            // Mostra a mensagem de erro
+            errorMessage.querySelector('p').innerHTML = `<strong>Erro:</strong> Falha ao comunicar com a página. Tente recarregar a página do JúpiterWeb e clicar no botão novamente. <br><small>Detalhe: ${error.message}</small>`;
             errorMessage.style.display = 'block';
             statusMessage.textContent = 'Falha na extração.';
         }
@@ -87,46 +94,34 @@ document.addEventListener('DOMContentLoaded', () => {
         classList.innerHTML = '';
         const today = new Date();
         const firstMonday = new Date(today);
-        firstMonday.setDate(today.getDate() + (1 + 7 - today.getDay()) % 7);
-        if (today.getDay() === 1) firstMonday.setDate(today.getDate());
+        firstMonday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
 
         events.forEach(event => {
             const li = document.createElement('li');
-            li.style.padding = '0.75rem';
-            li.style.borderBottom = '1px solid #ccc';
-
+            
             const eventDayIndex = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'].indexOf(event.day);
             const eventDate = new Date(firstMonday);
-            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - 1));
+            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - (firstMonday.getDay() || 7) ));
 
             const googleLink = createGoogleCalendarLink(event, eventDate);
-
-            // Cria os elementos de forma segura
-            const titleP = document.createElement('p');
-            titleP.style.fontWeight = 'bold';
-            titleP.textContent = event.title;
-
-            const timeP = document.createElement('p');
-            timeP.textContent = `${event.day}: ${event.startTime} - ${event.endTime}`;
-
-            const locationP = document.createElement('p');
-            locationP.textContent = event.location;
-
-            const linkA = document.createElement('a');
-            linkA.href = googleLink;
-            linkA.target = '_blank';
-            linkA.textContent = 'Adicionar ao Google Agenda';
-            linkA.style.marginTop = '0.5rem';
-            linkA.style.display = 'inline-block';
-
-            li.appendChild(titleP);
-            li.appendChild(timeP);
-            li.appendChild(locationP);
-            li.appendChild(linkA);
+            const outlookLink = createOutlookCalendarLink(event, eventDate);
+            
+            // ONDE O CÓDIGO MUDOU: Botão da Apple removido.
+            li.innerHTML = `
+                <p style="font-weight: bold; margin: 0 0 5px 0;">${event.title}</p>
+                <p style="margin: 0 0 5px 0;">${event.day}: ${event.startTime} - ${event.endTime}</p>
+                <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: #555;">Local: ${event.location}</p>
+                <div class="calendar-links">
+                    <a href="${googleLink}" target="_blank" class="google-link">Google</a>
+                    <a href="${outlookLink}" target="_blank" class="outlook-link">Outlook</a>
+                </div>
+            `;
             
             classList.appendChild(li);
         });
     };
+
+    // ONDE O CÓDIGO MUDOU: Event listener para o botão da Apple foi removido.
 
     // Lida com o clique no botão de exportar .ics
     exportIcsBtn.addEventListener('click', () => {
@@ -134,17 +129,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const today = new Date();
         const firstMonday = new Date(today);
-        firstMonday.setDate(today.getDate() + (1 + 7 - today.getDay()) % 7);
-        if (today.getDay() === 1) firstMonday.setDate(today.getDate());
+        firstMonday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
 
         const semesterEnd = new Date(firstMonday);
-        semesterEnd.setDate(firstMonday.getDate() + 18 * 7);
+        semesterEnd.setDate(firstMonday.getDate() + 18 * 7); 
         const untilDate = semesterEnd.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
         let icsContent = [
             'BEGIN:VCALENDAR',
             'VERSION:2.0',
-            'PRODID:-//SeuNome//ExportadorGradeHorariaUSP//PT',
+            'PRODID:-//CalendarUSP//ExportadorGradeHoraria//PT',
+            'CALSCALE:GREGORIAN',
         ];
 
         extractedEvents.forEach(event => {
@@ -153,10 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const eventDayIndex = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'].indexOf(event.day);
             const eventDate = new Date(firstMonday);
-            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - 1));
+            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - (firstMonday.getDay() || 7) ));
 
-            const dtstart = formatDateTime(eventDate, event.startTime);
-            const dtend = formatDateTime(eventDate, event.endTime);
+            const dtstart = formatDateTimeICS(eventDate, event.startTime);
+            const dtend = formatDateTimeICS(eventDate, event.endTime);
 
             icsContent.push(
                 'BEGIN:VEVENT',
@@ -172,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         icsContent.push('END:VCALENDAR');
         
-        const blob = new Blob([icsContent.join('\r\n')], { type: 'text/calendar' });
+        const blob = new Blob([icsContent.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

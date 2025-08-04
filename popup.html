@@ -3,13 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exportador de Grade Horária</title>
+    <title>CalendarUSP</title>
+    <style>
+        /* Estilos básicos para uma melhor apresentação */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            width: 350px;
+            padding: 15px;
+            background-color: #f9f9f9;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        button {
+            cursor: pointer;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: none;
+            font-weight: bold;
+            transition: background-color 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+        #extract-btn {
+            background-color: #007bff;
+            color: white;
+        }
+        #extract-btn:hover {
+            background-color: #0056b3;
+        }
+        #export-ics-btn {
+            background-color: #28a745;
+            color: white;
+        }
+        #export-ics-btn:hover {
+            background-color: #218838;
+        }
+        .calendar-links a {
+            text-decoration: none;
+            margin-right: 12px;
+            font-size: 0.85rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #fff;
+        }
+        .google-link { background-color: #4285F4; }
+        .outlook-link { background-color: #0072C6; }
+
+        #class-list li {
+            background-color: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        /* Estilos para a seção de tutoriais */
+        #tutorial-links {
+            margin-bottom: 1rem; 
+            font-size: 0.9rem; 
+            text-align: center;
+            padding: 8px;
+            background-color: #e9ecef;
+            border-radius: 6px;
+        }
+        #tutorial-links p {
+            margin: 0 0 5px 0;
+            font-weight: bold;
+        }
+        #tutorial-links a {
+            margin: 0 5px;
+        }
+    </style>
 </head>
 <body>
     <div>
         <div style="display: flex; align-items: center; margin-bottom: 1rem;">
             <img src="images/icon48.png" alt="Ícone" width="40" height="40" style="margin-right: 0.5rem;">
-            <h1 style="font-size: 1.25rem; font-weight: bold;">Exportador USP</h1>
+            <h1 style="font-size: 1.25rem; font-weight: bold;">CalendarUSP</h1>
         </div>
 
         <p id="status-message">Clique no botão abaixo para extrair sua grade horária da página atual.</p>
@@ -18,12 +88,23 @@
 
         <div id="results-container" style="display: none;">
             <h2>Aulas Encontradas:</h2>
+            
+            <button id="export-ics-btn" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">Exportar Tudo (.ics)</button>
+            
+            <!-- ONDE O CÓDIGO MUDOU: Links de tutorial atualizados -->
+            <div id="tutorial-links">
+                <p>Como importar o arquivo .ics?</p>
+                <a href="https://support.google.com/calendar/answer/37118?hl=pt-BR" target="_blank">Google</a> |
+                <a href="https://support.microsoft.com/pt-br/office/importar-ou-subscrever-um-calend%C3%A1rio-no-outlook-com-cff1429c-5af6-41ec-a5b4-74f2c278e98c" target="_blank">Outlook</a> |
+                <a href="https://support.apple.com/pt-br/guide/calendar/icl1023/mac" target="_blank">Apple</a>
+            </div>
+
             <ul id="class-list" style="list-style: none; padding: 0;">
-                </ul>
-            <button id="export-ics-btn" style="margin-top: 1rem;">Exportar Tudo (.ics)</button>
+                <!-- Itens das aulas serão inseridos aqui pelo popup.js -->
+            </ul>
         </div>
         
-        <div id="error-message" style="display: none; margin-top: 1rem; padding: 0.75rem; background-color: #fee2e2; color: #b91c1c;">
+        <div id="error-message" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: 6px; background-color: #fee2e2; color: #b91c1c;">
             <p><strong>Erro:</strong> Nenhuma tabela de grade horária encontrada. Certifique-se de que você está na página correta e que a grade está visível.</p>
         </div>
     </div>
