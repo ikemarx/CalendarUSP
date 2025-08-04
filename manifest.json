@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Exportador de Grade Horária USP",
+  "version": "1.0",
+  "description": "Extrai a grade horária do JúpiterWeb e exporta para o Google Agenda ou arquivo .ics.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "host_permissions": [
+    "https://uspdigital.usp.br/jupiterweb/gradeHoraria"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "exportador-usp@example.com"
+    }
+  }
+}
