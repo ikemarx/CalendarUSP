@@ -126,7 +126,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Erro na extensão:", error);
-            errorMessage.querySelector('p').innerHTML = `<strong>Erro:</strong> Falha ao comunicar com a página. Tente recarregar a página do JúpiterWeb e clicar no botão novamente. <br><small>Detalhe: ${error.message}</small>`;
+            // AJUSTE DE SEGURANÇA: Construindo a mensagem de erro de forma segura.
+            const p = errorMessage.querySelector('p');
+            p.textContent = ''; // Limpa conteúdo anterior
+
+            const strong = document.createElement('strong');
+            strong.textContent = 'Erro: ';
+            p.appendChild(strong);
+
+            p.appendChild(document.createTextNode('Falha ao comunicar com a página. Tente recarregar a página do JúpiterWeb e clicar no botão novamente. '));
+
+            const br = document.createElement('br');
+p.appendChild(br);
+
+            const small = document.createElement('small');
+            small.textContent = `Detalhe: ${error.message}`;
+            p.appendChild(small);
+
             errorMessage.style.display = 'block';
             statusMessage.textContent = 'Falha na extração.';
         }
@@ -155,15 +171,52 @@ document.addEventListener('DOMContentLoaded', () => {
             const googleLink = createGoogleCalendarLink(event, eventDate);
             const outlookLink = createOutlookCalendarLink(event, eventDate);
             
-            li.innerHTML = `
-                <p style="font-weight: bold; margin: 0 0 5px 0;">${event.title}</p>
-                <p style="margin: 0 0 5px 0;">${event.day}: ${event.startTime} - ${event.endTime}</p>
-                <p style="margin: 0 0 10px 0; font-size: 0.9rem; color: #555;">Local: ${event.location}</p>
-                <div class="calendar-links">
-                    <a href="${googleLink}" target="_blank" class="google-link">Google</a>
-                    <a href="${outlookLink}" target="_blank" class="outlook-link">Outlook</a>
-                </div>
-            `;
+            // AJUSTE DE SEGURANÇA: Construindo o item da lista de forma segura, sem innerHTML.
+            
+            // Parágrafo do título
+            const pTitle = document.createElement('p');
+            pTitle.style.fontWeight = 'bold';
+            pTitle.style.margin = '0 0 5px 0';
+            pTitle.textContent = event.title;
+
+            // Parágrafo do horário
+            const pSchedule = document.createElement('p');
+            pSchedule.style.margin = '0 0 5px 0';
+            pSchedule.textContent = `${event.day}: ${event.startTime} - ${event.endTime}`;
+
+            // Parágrafo do local
+            const pLocation = document.createElement('p');
+            pLocation.style.margin = '0 0 10px 0';
+            pLocation.style.fontSize = '0.9rem';
+            pLocation.style.color = '#555';
+            pLocation.textContent = `Local: ${event.location}`;
+
+            // Div dos links
+            const divLinks = document.createElement('div');
+            divLinks.className = 'calendar-links';
+
+            // Link do Google
+            const aGoogle = document.createElement('a');
+            aGoogle.href = googleLink;
+            aGoogle.target = '_blank';
+            aGoogle.className = 'google-link';
+            aGoogle.textContent = 'Google';
+
+            // Link do Outlook
+            const aOutlook = document.createElement('a');
+            aOutlook.href = outlookLink;
+            aOutlook.target = '_blank';
+            aOutlook.className = 'outlook-link';
+            aOutlook.textContent = 'Outlook';
+
+            // Anexa os elementos
+            divLinks.appendChild(aGoogle);
+            divLinks.appendChild(aOutlook);
+
+            li.appendChild(pTitle);
+            li.appendChild(pSchedule);
+            li.appendChild(pLocation);
+            li.appendChild(divLinks);
             
             classList.appendChild(li);
         });
