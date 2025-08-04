@@ -23,6 +23,13 @@
   "host_permissions": [
     "https://uspdigital.usp.br/jupiterweb/gradeHoraria"
   ],
+  "content_scripts": [
+    {
+      "matches": ["https://uspdigital.usp.br/jupiterweb/gradeHoraria*"],
+      "js": ["browser-polyfill.js"],
+      "run_at": "document_start"
+    }
+  ],
   "browser_specific_settings": {
     "gecko": {
       "id": "h.s.m@usp.br"
