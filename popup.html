@@ -4,38 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exportador de Grade Horária</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            width: 350px;
-            font-family: 'Inter', sans-serif;
-        }
-    </style>
 </head>
-<body class="bg-gray-100 p-4">
-    <div class="container mx-auto">
-        <div class="flex items-center mb-4">
-            <img src="images/icon48.png" alt="Ícone" class="w-8 h-8 mr-2">
-            <h1 class="text-xl font-bold text-gray-800">Exportador USP</h1>
+<body>
+    <div>
+        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+            <img src="images/icon48.png" alt="Ícone" width="40" height="40" style="margin-right: 0.5rem;">
+            <h1 style="font-size: 1.25rem; font-weight: bold;">Exportador USP</h1>
         </div>
 
-        <p id="status-message" class="text-gray-600 mb-4">Clique no botão abaixo para extrair sua grade horária da página atual.</p>
+        <p id="status-message">Clique no botão abaixo para extrair sua grade horária da página atual.</p>
 
-        <button id="extract-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-300 shadow-md">
-            Extrair Grade Horária
-        </button>
+        <button id="extract-btn">Extrair Grade Horária</button>
 
-        <div id="results-container" class="mt-4 hidden">
-            <h2 class="text-lg font-semibold mb-2 text-gray-700">Aulas Encontradas:</h2>
-            <ul id="class-list" class="space-y-2">
-                <!-- As aulas serão inseridas aqui via JavaScript -->
-            </ul>
-            <button id="export-ics-btn" class="w-full mt-4 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition duration-300 shadow-md">
-                Exportar Tudo (.ics)
-            </button>
+        <div id="results-container" style="display: none;">
+            <h2>Aulas Encontradas:</h2>
+            <ul id="class-list" style="list-style: none; padding: 0;">
+                </ul>
+            <button id="export-ics-btn" style="margin-top: 1rem;">Exportar Tudo (.ics)</button>
         </div>
         
-        <div id="error-message" class="mt-4 p-3 bg-red-100 text-red-700 rounded-lg hidden">
+        <div id="error-message" style="display: none; margin-top: 1rem; padding: 0.75rem; background-color: #fee2e2; color: #b91c1c;">
             <p><strong>Erro:</strong> Nenhuma tabela de grade horária encontrada. Certifique-se de que você está na página correta e que a grade está visível.</p>
         </div>
     </div>
