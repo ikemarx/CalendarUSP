@@ -1,7 +1,8 @@
 /**
  * @file popup.js
- * @description Gerencia a lógica da interface do popup da extensão, incluindo a extração de dados,
- * a exibição dos resultados e a exportação para formatos de calendário.
+ * @description Gerencia a lógica da interface do popup da extensão, incluindo a
+ * extração de dados da página, a exibição dos resultados e a geração de links
+ * e arquivos de calendário (.ics).
  */
 document.addEventListener('DOMContentLoaded', () => {
     // --- Seleção de Elementos do DOM ---
@@ -12,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusMessage = document.getElementById('status-message');
     const errorMessage = document.getElementById('error-message');
 
-    // Armazena os eventos extraídos da página.
+    // Armazena os eventos (aulas) extraídos da página.
     let extractedEvents = [];
 
     /**
@@ -29,34 +30,47 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     /**
-     * Formata data e hora para o padrão iCalendar (ICS), removendo hífens e dois-pontos.
-     * @param {Date} date - O objeto Date do evento.
+     * Formata um objeto de data e uma string de hora para o padrão de calendário
+     * (ex: '20250804T070000'), usando componentes de tempo locais para evitar
+     * conversões indesejadas de fuso horário.
+     * @param {Date} date - O objeto Date base do evento.
      * @param {string} time - A hora no formato "HH:MM".
-     * @returns {string} A data e hora formatada (ex: '20250804T100000').
+     * @returns {string} A data e hora formatada.
      */
-    const formatDateTimeICS = (date, time) => {
+    const formatDateTimeForCalendar = (date, time) => {
         const [hours, minutes] = time.split(':');
         const d = new Date(date);
-        d.setHours(hours);
-        d.setMinutes(minutes);
+        
+        d.setHours(parseInt(hours, 10));
+        d.setMinutes(parseInt(minutes, 10));
         d.setSeconds(0);
-        return d.toISOString().replace(/[-:]/g, '').split('.')[0];
+        d.setMilliseconds(0);
+
+        const year = d.getFullYear();
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        const fHours = d.getHours().toString().padStart(2, '0');
+        const fMinutes = d.getMinutes().toString().padStart(2, '0');
+        
+        return `${year}${month}${day}T${fHours}${fMinutes}00`;
     };
     
     /**
-     * Formata um objeto Date para uma string de data no formato "YYYY-MM-DD".
+     * Formata um objeto Date para uma string de data no formato "YYYY-MM-DD",
+     * utilizando métodos que operam no fuso horário local.
      * @param {Date} date - O objeto Date a ser formatado.
      * @returns {string} A data formatada.
      */
     const formatDateForLink = (date) => {
-        return date.toISOString().split('T')[0];
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
     };
-
-    // --- Funções para Criar Links de Calendário ---
 
     /**
      * Cria um link para adicionar um evento recorrente ao Google Agenda.
-     * @param {Object} event - O objeto do evento/aula.
+     * @param {Object} event - O objeto da aula.
      * @param {Date} firstDay - A data da primeira ocorrência da aula.
      * @returns {string} A URL completa para o Google Agenda.
      */
@@ -65,24 +79,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = encodeURIComponent(event.title);
         const details = encodeURIComponent(event.description);
         const location = encodeURIComponent(event.location);
-        const startDate = formatDateTimeICS(firstDay, event.startTime);
-        const endDate = formatDateTimeICS(firstDay, event.endTime);
+        const startDate = formatDateTimeForCalendar(firstDay, event.startTime);
+        const endDate = formatDateTimeForCalendar(firstDay, event.endTime);
         const dayInitial = getDayInitial(event.day);
-        // Define uma regra de recorrência semanal por 18 semanas.
         const rrule = `FREQ=WEEKLY;BYDAY=${dayInitial};COUNT=18`;
-        return `${baseUrl}&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}&recur=RRULE:${rrule}`;
+        
+        // Define explicitamente o fuso horário para garantir a precisão no Google Agenda.
+        return `${baseUrl}&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}&ctz=America/Sao_Paulo&recur=RRULE:${rrule}`;
     };
 
     /**
      * Cria um link para adicionar um evento ao Outlook Calendar.
-     * @param {Object} event - O objeto do evento/aula.
+     * @param {Object} event - O objeto da aula.
      * @param {Date} firstDay - A data da primeira ocorrência da aula.
      * @returns {string} A URL completa para o Outlook.
      */
     const createOutlookCalendarLink = (event, firstDay) => {
         const baseUrl = 'https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent';
         const title = encodeURIComponent(event.title);
-        // Adiciona uma nota para o usuário configurar a recorrência manualmente.
         const details = encodeURIComponent(`${event.description}\n\nAtenção: configure a recorrência para semanalmente, terminando em aprox. 18 semanas.`);
         const location = encodeURIComponent(event.location);
         const startDate = `${formatDateForLink(firstDay)}T${event.startTime}:00`;
@@ -90,30 +104,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${baseUrl}&subject=${title}&startdt=${startDate}&enddt=${endDate}&body=${details}&location=${location}`;
     };
 
-    // --- Event Listeners ---
-
     /**
-     * Lida com o clique no botão "Extrair Grade Horária".
-     * Injeta o content script e solicita a extração dos dados.
+     * Lida com o clique no botão "Extrair Grade Horária", enviando uma mensagem
+     * para o content script e processando a resposta.
      */
     extractBtn.addEventListener('click', async () => {
         errorMessage.style.display = 'none';
         statusMessage.textContent = 'Procurando a tabela na página...';
 
         try {
-            // Obtém a aba ativa e atual.
-            let [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
-            // Garante que o content script seja injetado na página.
+            // Injeta o content script na aba ativa para garantir que ele esteja em execução.
             await browser.scripting.executeScript({
                 target: { tabId: tab.id },
                 files: ['content.js']
             });
             
-            // Envia uma mensagem para o content script solicitando os dados.
+            // Envia uma mensagem para o content script solicitando a extração dos dados.
             const response = await browser.tabs.sendMessage(tab.id, { action: "extract" });
 
-            // Processa a resposta do content script.
             if (response && response.success && response.data.length > 0) {
                 extractedEvents = response.data;
                 statusMessage.style.display = 'none';
@@ -126,93 +136,79 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Erro na extensão:", error);
-            // AJUSTE DE SEGURANÇA: Construindo a mensagem de erro de forma segura.
             const p = errorMessage.querySelector('p');
-            p.textContent = ''; // Limpa conteúdo anterior
-
+            p.textContent = '';
             const strong = document.createElement('strong');
             strong.textContent = 'Erro: ';
             p.appendChild(strong);
-
             p.appendChild(document.createTextNode('Falha ao comunicar com a página. Tente recarregar a página do JúpiterWeb e clicar no botão novamente. '));
-
             const br = document.createElement('br');
-p.appendChild(br);
-
+            p.appendChild(br);
             const small = document.createElement('small');
             small.textContent = `Detalhe: ${error.message}`;
             p.appendChild(small);
-
             errorMessage.style.display = 'block';
             statusMessage.textContent = 'Falha na extração.';
         }
     });
 
     /**
-     * Exibe os resultados extraídos na interface do popup.
-     * @param {Array<Object>} events - A lista de eventos/aulas.
+     * Renderiza a lista de aulas extraídas na interface do popup.
+     * @param {Array<Object>} events - A lista de aulas.
      */
     const displayResults = (events) => {
         classList.innerHTML = '';
         const today = new Date();
-        // Calcula a data da primeira segunda-feira da semana atual para usar como base.
+        
+        // Define a data de início como a última segunda-feira para servir de âncora.
         const firstMonday = new Date(today);
         firstMonday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
 
         events.forEach(event => {
             const li = document.createElement('li');
             
-            // Calcula a data correta para a primeira ocorrência da aula.
-            const eventDayIndex = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'].indexOf(event.day);
+            // Calcula a data da primeira ocorrência da aula com base na âncora.
+            const dayIndexMap = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+            const eventDayIndex = dayIndexMap.indexOf(event.day);
             const eventDate = new Date(firstMonday);
-            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - (firstMonday.getDay() || 7) ));
+            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - 1)); // Ajuste para semana começando na segunda
 
-            // Gera os links para os calendários.
             const googleLink = createGoogleCalendarLink(event, eventDate);
             const outlookLink = createOutlookCalendarLink(event, eventDate);
             
-            // AJUSTE DE SEGURANÇA: Construindo o item da lista de forma segura, sem innerHTML.
-            
-            // Parágrafo do título
+            // Constrói o HTML do item da lista de forma segura para evitar XSS.
             const pTitle = document.createElement('p');
             pTitle.style.fontWeight = 'bold';
             pTitle.style.margin = '0 0 5px 0';
             pTitle.textContent = event.title;
 
-            // Parágrafo do horário
             const pSchedule = document.createElement('p');
             pSchedule.style.margin = '0 0 5px 0';
             pSchedule.textContent = `${event.day}: ${event.startTime} - ${event.endTime}`;
 
-            // Parágrafo do local
             const pLocation = document.createElement('p');
             pLocation.style.margin = '0 0 10px 0';
             pLocation.style.fontSize = '0.9rem';
             pLocation.style.color = '#555';
             pLocation.textContent = `Local: ${event.location}`;
 
-            // Div dos links
             const divLinks = document.createElement('div');
             divLinks.className = 'calendar-links';
 
-            // Link do Google
             const aGoogle = document.createElement('a');
             aGoogle.href = googleLink;
             aGoogle.target = '_blank';
             aGoogle.className = 'google-link';
             aGoogle.textContent = 'Google';
 
-            // Link do Outlook
             const aOutlook = document.createElement('a');
             aOutlook.href = outlookLink;
             aOutlook.target = '_blank';
             aOutlook.className = 'outlook-link';
             aOutlook.textContent = 'Outlook';
 
-            // Anexa os elementos
             divLinks.appendChild(aGoogle);
             divLinks.appendChild(aOutlook);
-
             li.appendChild(pTitle);
             li.appendChild(pSchedule);
             li.appendChild(pLocation);
@@ -223,20 +219,19 @@ p.appendChild(br);
     };
 
     /**
-     * Lida com o clique no botão "Exportar Tudo (.ics)".
-     * Gera um arquivo .ics com todos os eventos e inicia o download.
+     * Gera e inicia o download de um arquivo .ics contendo todas as aulas extraídas.
      */
     exportIcsBtn.addEventListener('click', () => {
         if (extractedEvents.length === 0) return;
 
-        // Calcula a data de início (primeira segunda-feira) e de fim do semestre (18 semanas depois).
         const today = new Date();
         const firstMonday = new Date(today);
         firstMonday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
 
+        // Define a data de término da recorrência (18 semanas após o início).
         const semesterEnd = new Date(firstMonday);
         semesterEnd.setDate(firstMonday.getDate() + 18 * 7); 
-        const untilDate = semesterEnd.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        const untilDate = formatDateTimeForCalendar(semesterEnd, '00:00') + 'Z';
 
         // Inicia a construção do conteúdo do arquivo .ics.
         let icsContent = [
@@ -244,19 +239,29 @@ p.appendChild(br);
             'VERSION:2.0',
             'PRODID:-//CalendarUSP//ExportadorGradeHoraria//PT',
             'CALSCALE:GREGORIAN',
+            // Adiciona a definição do fuso horário para garantir a correta interpretação.
+            'BEGIN:VTIMEZONE',
+            'TZID:America/Sao_Paulo',
+            'BEGIN:STANDARD',
+            'DTSTART:19700101T000000',
+            'TZOFFSETFROM:-0300',
+            'TZOFFSETTO:-0300',
+            'TZNAME:BRT',
+            'END:STANDARD',
+            'END:VTIMEZONE'
         ];
 
-        // Adiciona cada evento ao arquivo .ics.
         extractedEvents.forEach(event => {
             const dayInitial = getDayInitial(event.day);
             if (!dayInitial) return;
 
-            const eventDayIndex = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'].indexOf(event.day);
-            const eventDate = new Date(firstMonday);
-            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - (firstMonday.getDay() || 7) ));
+            const dayIndexMap = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+            const eventDayIndex = dayIndexMap.indexOf(event.day);
+            const eventDate = new date(firstMonday);
+            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - 1));
 
-            const dtstart = formatDateTimeICS(eventDate, event.startTime);
-            const dtend = formatDateTimeICS(eventDate, event.endTime);
+            const dtstart = formatDateTimeForCalendar(eventDate, event.startTime);
+            const dtend = formatDateTimeForCalendar(eventDate, event.endTime);
 
             icsContent.push(
                 'BEGIN:VEVENT',
@@ -272,7 +277,7 @@ p.appendChild(br);
 
         icsContent.push('END:VCALENDAR');
         
-        // Cria um Blob com o conteúdo e simula um clique para fazer o download.
+        // Cria um Blob e simula um clique para iniciar o download do arquivo.
         const blob = new Blob([icsContent.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
