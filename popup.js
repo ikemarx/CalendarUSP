@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dayIndexMap = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
             const eventDayIndex = dayIndexMap.indexOf(event.day);
             const eventDate = new Date(firstMonday);
-            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - 1)); // Ajuste para semana começando na segunda
+            eventDate.setDate(firstMonday.getDate() + (eventDayIndex - 1));
 
             const googleLink = createGoogleCalendarLink(event, eventDate);
             const outlookLink = createOutlookCalendarLink(event, eventDate);
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const dayIndexMap = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
             const eventDayIndex = dayIndexMap.indexOf(event.day);
-            const eventDate = new date(firstMonday);
+            const eventDate = new Date(firstMonday);
             eventDate.setDate(firstMonday.getDate() + (eventDayIndex - 1));
 
             const dtstart = formatDateTimeForCalendar(eventDate, event.startTime);
