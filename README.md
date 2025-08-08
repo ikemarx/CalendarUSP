@@ -4,7 +4,8 @@
 
 Uma extensão de navegador simples e eficiente para extrair sua grade horária do JúpiterWeb (USP) e importá-la facilmente para seu calendário preferido.
 
-[![Licença: MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Licença: MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-yellow.svg)](https://opensource.org/licenses/MIT)  
+[![Add to Firefox](https://addons.cdn.mozilla.net/static/img/addons-buttons/AMO-button_1.png)](https://addons.mozilla.org/firefox/addon/calendarusp/)
 
 ## Funcionalidades
 
