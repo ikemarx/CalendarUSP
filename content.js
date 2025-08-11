@@ -2,7 +2,6 @@
  * @file content.js
  * @description Script injetado na página de grade horária do JúpiterWeb (USP) para
  * extrair as informações das disciplinas e seus respectivos horários.
- * Esta versão corrigida evita condições de corrida ao extrair os detalhes das disciplinas.
  */
 
 /**
