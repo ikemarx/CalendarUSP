@@ -182,60 +182,45 @@ document.addEventListener('DOMContentLoaded', () => {
         classList.innerHTML = '';
         
         events.forEach(event => {
-            const li = document.createElement('li');
-
-            // Determinar a data da primeira aula
             let firstClassDate;
             if (event.startDate) {
                 firstClassDate = calculateFirstClassDate(event.startDate, event.day);
             } else {
-                // Fallback (lógica antiga) se não achou data
-                const today = new Date();
-                firstClassDate = calculateFirstClassDate(today, event.day);
+                firstClassDate = calculateFirstClassDate(new Date(), event.day);
             }
 
             const googleLink = createGoogleCalendarLink(event, firstClassDate);
             const outlookLink = createOutlookCalendarLink(event, firstClassDate);
 
-            const pTitle = document.createElement('p');
-            pTitle.style.fontWeight = 'bold';
-            pTitle.style.margin = '0 0 5px 0';
-            pTitle.textContent = event.title;
+            // Cria o elemento do cartão (Card)
+            const li = document.createElement('li');
+            li.className = 'class-card';
 
-            const pSchedule = document.createElement('p');
-            pSchedule.style.margin = '0 0 5px 0';
-            pSchedule.textContent = `${event.day}: ${event.startTime} - ${event.endTime}`;
-
-            // Exibe o Professor
-            const pProf = document.createElement('p');
-            pProf.style.margin = '0 0 5px 0';
-            pProf.style.fontSize = '0.85rem';
-            pProf.style.color = '#555';
-            pProf.style.fontStyle = 'italic';
-            pProf.textContent = event.professors || 'Prof. não identificado';
-
-            const divLinks = document.createElement('div');
-            divLinks.className = 'calendar-links';
-
-            const aGoogle = document.createElement('a');
-            aGoogle.href = googleLink;
-            aGoogle.target = '_blank';
-            aGoogle.className = 'google-link';
-            aGoogle.textContent = 'Google';
-
-            const aOutlook = document.createElement('a');
-            aOutlook.href = outlookLink;
-            aOutlook.target = '_blank';
-            aOutlook.className = 'outlook-link';
-            aOutlook.textContent = 'Outlook';
-
-            divLinks.appendChild(aGoogle);
-            divLinks.appendChild(aOutlook);
-            li.appendChild(pTitle);
-            li.appendChild(pSchedule);
-            li.appendChild(pProf);
-            li.appendChild(divLinks);
-
+            // HTML Interno do Card
+            li.innerHTML = `
+                <div class="class-title">${event.title}</div>
+                <div class="class-info">
+                    <div>
+                        <svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+                        <strong>${event.day}</strong> • ${event.startTime} - ${event.endTime}
+                    </div>
+                    <div class="class-prof">
+                        <svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+                        ${event.professors || 'Prof. não identificado'}
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <a href="${googleLink}" target="_blank" class="action-link google-btn">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
+                        Google
+                    </a>
+                    <a href="${outlookLink}" target="_blank" class="action-link outlook-btn">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M23,12l-2.44-2.79l0.34-3.69l-3.61-0.82L15.4,1.5L12,2.96L8.6,1.5L6.71,4.69L3.1,5.5L3.44,9.2L1,12l2.44,2.79l-0.34,3.7l3.61,0.82L8.6,22.5l3.4-1.47l3.4,1.46l1.89-3.19l3.61-0.82l-0.34-3.69L23,12z M10.09,16.72l-3.8-3.81l1.48-1.48l2.32,2.33l5.85-5.87l1.48,1.48L10.09,16.72z"/></svg>
+                        Outlook
+                    </a>
+                </div>
+            `;
+            
             classList.appendChild(li);
         });
     };
