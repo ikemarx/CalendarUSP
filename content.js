@@ -69,7 +69,7 @@ async function extractSchedule() {
     const disciplineSlots = {};
     const disciplineSpans = {};
 
-    // 1ª Etapa: Coletar todos os horários e disciplinas únicas da grade
+    // 1ª Etapa: Coletar todos os horários e referências aos elementos das disciplinas
     for (const row of dataRows) {
         const cells = row.querySelectorAll('td');
         if (cells.length < 2) continue;
@@ -85,7 +85,7 @@ async function extractSchedule() {
                 const disciplineCode = classSpan.getAttribute('data-disciplina');
                 if (!disciplineSlots[disciplineCode]) {
                     disciplineSlots[disciplineCode] = [];
-                    disciplineSpans[disciplineCode] = classSpan; // Guarda a primeira referência ao span para clicar depois
+                    disciplineSpans[disciplineCode] = classSpan; // Guarda a referência para clicar e extrair texto depois
                 }
                 disciplineSlots[disciplineCode].push({
                     day: daysOfWeek[i - 2],
@@ -98,18 +98,18 @@ async function extractSchedule() {
 
     const events = [];
 
-    // 2ª Etapa: Iterar sobre as disciplinas únicas, clicar e extrair os detalhes
+    // 2ª Etapa: Iterar sobre as disciplinas, extrair nome completo, PROFESSORES e CÓDIGO COM TURMA
     for (const disciplineCode in disciplineSpans) {
         const classSpan = disciplineSpans[disciplineCode];
+        const codeWithGroup = classSpan.innerText.trim();
         classSpan.click();
 
         const detailsPanel = await waitForElement('#tab_detalhes');
-        // Adiciona uma pequena pausa para garantir que o conteúdo do painel foi carregado
         await new Promise(resolve => setTimeout(resolve, 300));
 
-        let fullDisciplineName = disciplineCode; // Nome de fallback
+        let fullDisciplineName = disciplineCode;
         let professors = "Não encontrado";
-        let location = "Verificar no JúpiterWeb";
+        let location = "";
 
         if (detailsPanel) {
             const nameElement = detailsPanel.querySelector('.nomdis');
@@ -128,21 +128,21 @@ async function extractSchedule() {
         events.push({
             title: disciplineCode,
             fullTitle: fullDisciplineName,
+            codeWithGroup: codeWithGroup,
             professors: professors,
             location: location,
-            description: `Disciplina: ${fullDisciplineName}\nProfessor(es): ${professors}`,
+            description: `Disciplina: ${codeWithGroup}\nDocente(s) Responsável(eis): ${professors}`,
             schedule: disciplineSlots[disciplineCode]
         });
     }
 
-    // Formata a saída final, criando um evento para cada horário
     const finalEvents = [];
     events.forEach(event => {
         event.schedule.forEach(slot => {
-            // Garante que não haja duplicatas de horários para a mesma disciplina
-            if (!finalEvents.some(e => e.title.startsWith(event.title) && e.day === slot.day && e.startTime === slot.startTime)) {
+            if (!finalEvents.some(e => e.title === event.fullTitle && e.day === slot.day && e.startTime === slot.startTime)) {
                 finalEvents.push({
-                    title: `${event.title} - ${event.fullTitle}`,
+                    title: event.fullTitle,
+                    code: event.codeWithGroup,
                     day: slot.day,
                     startTime: slot.startTime,
                     endTime: slot.endTime,

@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const formatDateTimeForCalendar = (date, time) => {
         const [hours, minutes] = time.split(':');
         const d = new Date(date);
-        
+
         d.setHours(parseInt(hours, 10));
         d.setMinutes(parseInt(minutes, 10));
         d.setSeconds(0);
@@ -51,10 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const day = d.getDate().toString().padStart(2, '0');
         const fHours = d.getHours().toString().padStart(2, '0');
         const fMinutes = d.getMinutes().toString().padStart(2, '0');
-        
+
         return `${year}${month}${day}T${fHours}${fMinutes}00`;
     };
-    
+
     /**
      * Formata um objeto Date para uma string de data no formato "YYYY-MM-DD",
      * utilizando métodos que operam no fuso horário local.
@@ -83,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const endDate = formatDateTimeForCalendar(firstDay, event.endTime);
         const dayInitial = getDayInitial(event.day);
         const rrule = `FREQ=WEEKLY;BYDAY=${dayInitial};COUNT=18`;
-        
+
         // Define explicitamente o fuso horário para garantir a precisão no Google Agenda.
         return `${baseUrl}&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}&ctz=America/Sao_Paulo&recur=RRULE:${rrule}`;
     };
@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 target: { tabId: tab.id },
                 files: ['content.js']
             });
-            
+
             // Envia uma mensagem para o content script solicitando a extração dos dados.
             const response = await browser.tabs.sendMessage(tab.id, { action: "extract" });
 
@@ -128,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 extractedEvents = response.data;
                 statusMessage.style.display = 'none';
                 extractBtn.style.display = 'none';
-                resultsContainer.style.display = 'block'; 
+                resultsContainer.style.display = 'block';
                 displayResults(extractedEvents);
             } else {
                 errorMessage.style.display = 'block';
@@ -159,14 +159,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const displayResults = (events) => {
         classList.innerHTML = '';
         const today = new Date();
-        
+
         // Define a data de início como a última segunda-feira para servir de âncora.
         const firstMonday = new Date(today);
         firstMonday.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
 
         events.forEach(event => {
             const li = document.createElement('li');
-            
+
             // Calcula a data da primeira ocorrência da aula com base na âncora.
             const dayIndexMap = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
             const eventDayIndex = dayIndexMap.indexOf(event.day);
@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const googleLink = createGoogleCalendarLink(event, eventDate);
             const outlookLink = createOutlookCalendarLink(event, eventDate);
-            
+
             // Constrói o HTML do item da lista de forma segura para evitar XSS.
             const pTitle = document.createElement('p');
             pTitle.style.fontWeight = 'bold';
@@ -186,11 +186,11 @@ document.addEventListener('DOMContentLoaded', () => {
             pSchedule.style.margin = '0 0 5px 0';
             pSchedule.textContent = `${event.day}: ${event.startTime} - ${event.endTime}`;
 
-            const pLocation = document.createElement('p');
-            pLocation.style.margin = '0 0 10px 0';
-            pLocation.style.fontSize = '0.9rem';
-            pLocation.style.color = '#555';
-            pLocation.textContent = `Local: ${event.location}`;
+            const pCode = document.createElement('p');
+            pCode.style.margin = '0 0 10px 0';
+            pCode.style.fontSize = '0.9rem';
+            pCode.style.color = '#555';
+            pCode.textContent = `Código: ${event.code || 'N/A'}`;
 
             const divLinks = document.createElement('div');
             divLinks.className = 'calendar-links';
@@ -211,9 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
             divLinks.appendChild(aOutlook);
             li.appendChild(pTitle);
             li.appendChild(pSchedule);
-            li.appendChild(pLocation);
+            li.appendChild(pCode);
             li.appendChild(divLinks);
-            
+
             classList.appendChild(li);
         });
     };
@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Define a data de término da recorrência (18 semanas após o início).
         const semesterEnd = new Date(firstMonday);
-        semesterEnd.setDate(firstMonday.getDate() + 18 * 7); 
+        semesterEnd.setDate(firstMonday.getDate() + 18 * 7);
         const untilDate = formatDateTimeForCalendar(semesterEnd, '00:00') + 'Z';
 
         // Inicia a construção do conteúdo do arquivo .ics.
@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         icsContent.push('END:VCALENDAR');
-        
+
         // Cria um Blob e simula um clique para iniciar o download do arquivo.
         const blob = new Blob([icsContent.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
         const url = URL.createObjectURL(blob);
