@@ -12,13 +12,13 @@ Uma extensão de navegador simples e eficiente para extrair sua grade horária d
 
 <div align="center">
   <a href="https://addons.mozilla.org/firefox/addon/calendarusp/" title="Adicionar ao Firefox">
-    <img src="https://raw.githubusercontent.com/ikemarx/blog/main/static/calendarusp/firefox.svg" alt="Disponível para Firefox" width="100">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/a/a0/Firefox_logo%2C_2019.svg" alt="Disponível para Firefox" width="100">
   </a>
   <a href="https://chromewebstore.google.com/detail/calendarusp/hahlhcelhcokmpgficmnbcnlacikacjb" title="Adicionar ao Chrome">
-    <img src="https://raw.githubusercontent.com/ikemarx/blog/main/static/calendarusp/chrome.svg" alt="Disponível para Google Chrome" width="100">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/Google_Chrome_icon_%28February_2022%29.svg" alt="Disponível para Google Chrome" width="100">
   </a>
   <a href="https://chromewebstore.google.com/detail/calendarusp/hahlhcelhcokmpgficmnbcnlacikacjb" title="Adicionar ao Edge">
-    <img src="https://raw.githubusercontent.com/ikemarx/blog/main/static/calendarusp/edge.svg" alt="Disponível para Microsoft Edge" width="100">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/Microsoft_Edge_logo_%282019%29.svg" alt="Disponível para Microsoft Edge" width="100">
   </a>
 </div>
 
