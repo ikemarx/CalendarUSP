@@ -161,18 +161,25 @@ async function extractSchedule() {
                 endDate = parsePtDate(endStr);
 
                 // Mapeamento de professores
+                // Quando o professor é o mesmo em dois dias, o HTML usa rowspan na célula,
+                // fazendo a segunda linha ter apenas 3 colunas (sem professor). Rastreamos
+                // o último professor visto para herdar nesses casos.
                 const rowsHorarios = divOferecimento.querySelectorAll('.horarios tbody tr');
+                let lastProfName = "";
                 rowsHorarios.forEach(row => {
                     const cols = row.querySelectorAll('td');
+                    if (cols.length < 2) return;
+
+                    const rawDay = cols[0].innerText;
+                    const dayFull = normalizeDayName(rawDay);
+                    const startTxt = cols[1].innerText.trim();
+
                     if (cols.length >= 4) {
-                        const rawDay = cols[0].innerText;
-                        const dayFull = normalizeDayName(rawDay);
-                        const startTxt = cols[1].innerText.trim();
-                        const profName = cols[3].innerText.trim();
-                        
-                        const key = `${dayFull}-${startTxt}`;
-                        specificProfMap[key] = profName;
+                        lastProfName = cols[3].innerText.trim();
                     }
+
+                    const key = `${dayFull}-${startTxt}`;
+                    specificProfMap[key] = lastProfName;
                 });
             }
         }
@@ -201,11 +208,42 @@ async function extractSchedule() {
     return { success: true, data: finalEvents };
 }
 
+async function checkPageStatus() {
+    // Se a tabela da grade está presente, o usuário está logado e na página
+    // certa — isso tem prioridade sobre qualquer formulário de login oculto
+    // que páginas internas costumam manter no cabeçalho/menu.
+    if (document.querySelector('table#tableGradeHoraria')) {
+        return { status: 'ready' };
+    }
+
+    // Detecta a página de login quando há um campo de senha de fato visível na
+    // tela. A URL não é confiável: o caminho "webLogin" continua sendo usado
+    // mesmo após o login, e formulários de login costumam ficar ocultos no
+    // cabeçalho de páginas internas. Procuramos por qualquer input de senha
+    // (não só pelo name "senhausr", que pode variar).
+    const senhaCandidates = document.querySelectorAll(
+        'input[name="senhausr"], input[type="password"]'
+    );
+    for (const senha of senhaCandidates) {
+        if (senha.offsetParent !== null) {
+            return { status: 'not_logged_in' };
+        }
+    }
+
+    // A grade é carregada dinamicamente: numa página recém-aberta a tabela pode
+    // ainda não existir. Espera brevemente antes de concluir que é página errada.
+    const table = await waitForElement('table#tableGradeHoraria', 2500);
+    return { status: table ? 'ready' : 'wrong_page' };
+}
+
 /**
  * Adiciona um listener para receber e responder a mensagens do popup da extensão.
  */
 browser.runtime.onMessage.addListener((request, sender) => {
     if (request.action === "extract") {
         return extractSchedule();
+    }
+    if (request.action === "checkPage") {
+        return Promise.resolve(checkPageStatus());
     }
 });

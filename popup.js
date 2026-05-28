@@ -16,6 +16,152 @@ document.addEventListener('DOMContentLoaded', () => {
     // Armazena os eventos (aulas) extraídos da página.
     let extractedEvents = [];
 
+    // --- Constantes de URL ---
+    const JUPITER_LOGIN_URL = 'https://uspdigital.usp.br/jupiterweb/webLogin.jsp';
+    const JUPITER_GRADE_URL = 'https://uspdigital.usp.br/jupiterweb/gradeHoraria';
+    const JUPITER_HOST = 'uspdigital.usp.br';
+
+    // Elementos do aviso de página/login
+    const pageWarning = document.getElementById('page-warning');
+    const warningTitle = document.getElementById('warning-title');
+    const warningText = document.getElementById('warning-text');
+    const warningLink = document.getElementById('warning-link');
+    const warningLinkText = document.getElementById('warning-link-text');
+
+    /**
+     * Exibe o aviso de página com título, texto e link configuráveis,
+     * escondendo o fluxo normal de extração.
+     */
+    const showWarning = (title, text, linkUrl, linkText) => {
+        warningTitle.textContent = title;
+        warningText.textContent = text;
+        warningLink.href = linkUrl;
+        warningLinkText.textContent = linkText;
+        pageWarning.style.display = 'block';
+        extractBtn.style.display = 'none';
+        statusMessage.style.display = 'none';
+    };
+
+    /**
+     * Coloca a interface em estado "verificando": esconde o aviso e o botão de
+     * extrair até sabermos o estado real da página. Evita que o botão apareça
+     * por engano em páginas de login enquanto a checagem assíncrona ocorre.
+     */
+    const setCheckingUI = () => {
+        pageWarning.style.display = 'none';
+        extractBtn.style.display = 'none';
+        statusMessage.style.display = 'block';
+        statusMessage.textContent = 'Verificando a página...';
+    };
+
+    /**
+     * Revela o fluxo normal de extração (botão visível) quando a página está
+     * pronta para extrair.
+     */
+    const showReadyUI = () => {
+        pageWarning.style.display = 'none';
+        extractBtn.style.display = 'flex';
+        statusMessage.style.display = 'block';
+        statusMessage.textContent = 'Navegue até sua grade no JúpiterWeb e clique abaixo.';
+    };
+
+    /**
+     * Verifica, ao abrir o popup, se a aba ativa está na página correta da grade
+     * horária e se o usuário está logado. Ajusta a interface conforme o estado.
+     */
+    const checkActivePage = async () => {
+        // Se o usuário já extraiu a grade, não perturba a tela de resultados.
+        if (resultsContainer.style.display === 'block') return;
+
+        try {
+            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+
+            setCheckingUI();
+
+            // Fora do domínio do JúpiterWeb: orienta a navegar até lá.
+            if (!tab.url || !tab.url.includes(JUPITER_HOST)) {
+                showWarning(
+                    'Você não está no JúpiterWeb',
+                    'Acesse o sistema e abra sua grade horária para extrair as aulas.',
+                    JUPITER_LOGIN_URL,
+                    'Ir para o JúpiterWeb'
+                );
+                return;
+            }
+
+            let status;
+            try {
+                const response = await browser.tabs.sendMessage(tab.id, { action: "checkPage" });
+                status = response.status;
+            } catch (e) {
+                // Content script ainda não injetado: injeta e tenta de novo.
+                await browser.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['browser-polyfill.js', 'content.js']
+                });
+                const response = await browser.tabs.sendMessage(tab.id, { action: "checkPage" });
+                status = response.status;
+            }
+
+            if (status === 'not_logged_in') {
+                showWarning(
+                    'Você não está logado',
+                    'Faça login no JúpiterWeb para acessar sua grade horária.',
+                    JUPITER_LOGIN_URL,
+                    'Fazer login no JúpiterWeb'
+                );
+            } else if (status === 'wrong_page') {
+                // Nas páginas iniciais já logadas, leva direto à grade horária.
+                // O webLogin entra aqui também: se chegamos a 'wrong_page' nele,
+                // é porque não há campo de senha visível, ou seja, já está logado.
+                const path = new URL(tab.url).pathname.replace(/\/$/, '');
+                const isLandingPage =
+                    path === '/jupiterweb' ||
+                    path === '/jupiterweb/autenticar' ||
+                    /\/jupiterweb\/webLogin/i.test(path);
+
+                if (isLandingPage) {
+                    showWarning(
+                        'Abra a sua grade horária',
+                        'Você está logado. Acesse a grade horária para extrair as aulas.',
+                        JUPITER_GRADE_URL,
+                        'Ir para a Grade Horária'
+                    );
+                } else {
+                    showWarning(
+                        'Página incorreta',
+                        'Abra a sua grade horária no JúpiterWeb para extrair as aulas.',
+                        JUPITER_GRADE_URL,
+                        'Ir para a Grade Horária'
+                    );
+                }
+            } else {
+                // status === 'ready': revela o fluxo normal de extração.
+                showReadyUI();
+            }
+        } catch (error) {
+            console.error('CalendarUSP: erro ao verificar a página.', error);
+            // Em caso de falha na checagem, libera o botão para o usuário tentar.
+            showReadyUI();
+        }
+    };
+
+    checkActivePage();
+
+    // Ao clicar no botão de redirecionamento, navega a aba atual até o destino
+    // e fecha o popup. Assim, ao reabri-lo na página correta, a verificação roda
+    // do zero — sem precisar de listeners nem da permissão "tabs".
+    warningLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+            await browser.tabs.update(tab.id, { url: warningLink.href });
+        } catch (error) {
+            console.error('CalendarUSP: erro ao redirecionar.', error);
+        }
+        window.close();
+    });
+
     /**
      * Converte o nome do dia da semana para a sigla padrão do formato iCalendar (ICS).
      * @param {string} day - O nome completo do dia (ex: 'Segunda-feira').
@@ -152,12 +298,18 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
             
-            await browser.scripting.executeScript({
-                target: { tabId: tab.id },
-                files: ['content.js']
-            });
-
-            const response = await browser.tabs.sendMessage(tab.id, { action: "extract" });
+            let response;
+            try {
+                // Tenta enviar a mensagem caso o script já tenha sido injetado antes nesta aba
+                response = await browser.tabs.sendMessage(tab.id, { action: "extract" });
+            } catch (e) {
+                // Se falhar, é porque o content script ainda não foi injetado, então injetamos ambos
+                await browser.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['browser-polyfill.js', 'content.js']
+                });
+                response = await browser.tabs.sendMessage(tab.id, { action: "extract" });
+            }
 
             if (response && response.success && response.data.length > 0) {
                 extractedEvents = response.data;
@@ -265,20 +417,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Regra de recorrência
             let rrule = `RRULE:FREQ=WEEKLY;BYDAY=${dayInitial}`;
             if (event.endDate) {
-                // Formata UNTIL para UTC (aproximado, adicionando Z ao final da string local formatada 
-                // para garantir que a data final inclua a última aula)
+                // Formata UNTIL corretamente para UTC
                 const endD = new Date(event.endDate);
-                endD.setHours(23, 59, 59);
-                
-                // Formato básico para iCal UNTIL: YYYYMMDDTHHMMSSZ
                 const y = endD.getFullYear();
                 const m = (endD.getMonth() + 1).toString().padStart(2, '0');
                 const d = endD.getDate().toString().padStart(2, '0');
-                const h = endD.getHours().toString().padStart(2, '0');
-                const min = endD.getMinutes().toString().padStart(2, '0');
-                const s = endD.getSeconds().toString().padStart(2, '0');
-                
-                rrule += `;UNTIL=${y}${m}${d}T${h}${min}${s}Z`;
+
+                rrule += `;UNTIL=${y}${m}${d}T235959`;
             } else {
                 rrule += `;COUNT=18`;
             }

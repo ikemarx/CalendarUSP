@@ -20,16 +20,7 @@
     "48": "images/icon48.png",
     "128": "images/icon128.png"
   },
-  "host_permissions": [
-    "https://uspdigital.usp.br/jupiterweb/gradeHoraria"
-  ],
-  "content_scripts": [
-    {
-      "matches": ["https://uspdigital.usp.br/jupiterweb/gradeHoraria*"],
-      "js": ["browser-polyfill.js"],
-      "run_at": "document_start"
-    }
-  ],
+
   "browser_specific_settings": {
     "gecko": {
       "id": "ikemarx@gmail.com"
