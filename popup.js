@@ -12,9 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const classList = document.getElementById('class-list');
     const statusMessage = document.getElementById('status-message');
     const errorMessage = document.getElementById('error-message');
+    const reminderSelect = document.getElementById('reminder-select');
+    const selectAllCheckbox = document.getElementById('select-all');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const cacheNote = document.getElementById('cache-note');
+    const viewListBtn = document.getElementById('view-list-btn');
+    const viewGridBtn = document.getElementById('view-grid-btn');
+    const weekGrid = document.getElementById('week-grid');
 
     // Armazena os eventos (aulas) extraídos da página.
     let extractedEvents = [];
+
+    // Chave usada para guardar a última extração no storage local.
+    const CACHE_KEY = 'lastSchedule';
 
     // --- Constantes de URL ---
     const JUPITER_LOGIN_URL = 'https://uspdigital.usp.br/jupiterweb/webLogin.jsp';
@@ -146,8 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    checkActivePage();
-
     // Ao clicar no botão de redirecionamento, navega a aba atual até o destino
     // e fecha o popup. Assim, ao reabri-lo na página correta, a verificação roda
     // do zero — sem precisar de listeners nem da permissão "tabs".
@@ -235,6 +243,124 @@ document.addEventListener('DOMContentLoaded', () => {
         return firstClass;
     };
 
+    /**
+     * Resolve a data da primeira ocorrência de uma aula, usando a data de início
+     * do oferecimento quando disponível ou a data atual como fallback.
+     */
+    const getFirstClassDate = (event) =>
+        calculateFirstClassDate(event.startDate || new Date(), event.day);
+
+    /**
+     * Lê o número de minutos de antecedência do lembrete selecionado.
+     * Retorna 0 quando o usuário escolhe "Nenhum".
+     */
+    const getReminderMinutes = () => parseInt(reminderSelect.value, 10) || 0;
+
+    /**
+     * Monta as linhas de um VEVENT (incluindo VALARM, se houver lembrete).
+     * @param {Object} event - A aula.
+     * @param {number} reminderMinutes - Minutos de antecedência (0 = sem lembrete).
+     * @returns {string[]} Linhas do componente VEVENT.
+     */
+    const buildVEvent = (event, reminderMinutes) => {
+        const dayInitial = getDayInitial(event.day);
+        if (!dayInitial) return [];
+
+        const firstClassDate = getFirstClassDate(event);
+        const dtstart = formatDateTimeForCalendar(firstClassDate, event.startTime);
+        const dtend = formatDateTimeForCalendar(firstClassDate, event.endTime);
+
+        let rrule = `RRULE:FREQ=WEEKLY;BYDAY=${dayInitial}`;
+        if (event.endDate) {
+            const endD = new Date(event.endDate);
+            const y = endD.getFullYear();
+            const m = (endD.getMonth() + 1).toString().padStart(2, '0');
+            const d = endD.getDate().toString().padStart(2, '0');
+            rrule += `;UNTIL=${y}${m}${d}T235959`;
+        } else {
+            rrule += `;COUNT=18`;
+        }
+
+        const lines = [
+            'BEGIN:VEVENT',
+            `DTSTART;TZID=America/Sao_Paulo:${dtstart}`,
+            `DTEND;TZID=America/Sao_Paulo:${dtend}`,
+            rrule,
+            `SUMMARY:${event.title}`,
+            `DESCRIPTION:${(event.description || '').replace(/\n/g, '\\n')}`,
+            `LOCATION:${event.location || ''}`
+        ];
+
+        if (reminderMinutes > 0) {
+            lines.push(
+                'BEGIN:VALARM',
+                `TRIGGER:-PT${reminderMinutes}M`,
+                'ACTION:DISPLAY',
+                'DESCRIPTION:Lembrete',
+                'END:VALARM'
+            );
+        }
+
+        lines.push('END:VEVENT');
+        return lines;
+    };
+
+    /**
+     * Gera o conteúdo completo de um arquivo .ics para uma lista de aulas.
+     */
+    const buildIcs = (events, reminderMinutes) => {
+        const icsContent = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//CalendarUSP//ExportadorGradeHoraria//PT',
+            'CALSCALE:GREGORIAN',
+            'BEGIN:VTIMEZONE',
+            'TZID:America/Sao_Paulo',
+            'BEGIN:STANDARD',
+            'DTSTART:19700101T000000',
+            'TZOFFSETFROM:-0300',
+            'TZOFFSETTO:-0300',
+            'TZNAME:BRT',
+            'END:STANDARD',
+            'END:VTIMEZONE'
+        ];
+
+        events.forEach(event => {
+            icsContent.push(...buildVEvent(event, reminderMinutes));
+        });
+
+        icsContent.push('END:VCALENDAR');
+        return icsContent.join('\r\n');
+    };
+
+    /**
+     * Gera e inicia o download de um arquivo .ics para as aulas fornecidas.
+     */
+    const downloadIcs = (events, filename) => {
+        if (events.length === 0) return;
+        const content = buildIcs(events, getReminderMinutes());
+        const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    /**
+     * Sanitiza o título da aula para uso em nome de arquivo.
+     */
+    const slugifyTitle = (title) =>
+        (title || 'aula')
+            .normalize('NFD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-zA-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '')
+            .toLowerCase()
+            .slice(0, 40) || 'aula';
+
         /**
      * Cria um link para adicionar um evento recorrente ao Google Agenda.
      * @param {Object} event - O objeto da aula.
@@ -287,23 +413,45 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${baseUrl}&subject=${title}&startdt=${startStr}&enddt=${endStr}&body=${details}&location=${location}`;
     };
 
+    // --- Cache (storage.local) ---
+
+    /** Salva a última extração no storage local. */
+    const saveCache = (events) => {
+        try {
+            browser.storage.local.set({ [CACHE_KEY]: events });
+        } catch (e) {
+            console.error('CalendarUSP: erro ao salvar cache.', e);
+        }
+    };
+
+    /** Carrega a última extração salva (ou null). */
+    const loadCache = async () => {
+        try {
+            const data = await browser.storage.local.get(CACHE_KEY);
+            const events = data[CACHE_KEY];
+            return Array.isArray(events) && events.length > 0 ? events : null;
+        } catch (e) {
+            console.error('CalendarUSP: erro ao carregar cache.', e);
+            return null;
+        }
+    };
+
     /**
-     * Lida com o clique no botão "Extrair Grade Horária", enviando uma mensagem
-     * para o content script e processando a resposta.
+     * Executa a extração na aba ativa e exibe os resultados. Reutilizado tanto
+     * pelo botão "Extrair" quanto pelo botão "Atualizar".
      */
-    extractBtn.addEventListener('click', async () => {
+    const runExtraction = async () => {
         errorMessage.style.display = 'none';
+        statusMessage.style.display = 'block';
         statusMessage.textContent = 'Extraindo dados (isso pode levar alguns segundos)...';
 
         try {
             const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-            
+
             let response;
             try {
-                // Tenta enviar a mensagem caso o script já tenha sido injetado antes nesta aba
                 response = await browser.tabs.sendMessage(tab.id, { action: "extract" });
             } catch (e) {
-                // Se falhar, é porque o content script ainda não foi injetado, então injetamos ambos
                 await browser.scripting.executeScript({
                     target: { tabId: tab.id },
                     files: ['browser-polyfill.js', 'content.js']
@@ -313,10 +461,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response && response.success && response.data.length > 0) {
                 extractedEvents = response.data;
-                statusMessage.style.display = 'none';
-                extractBtn.style.display = 'none';
-                resultsContainer.style.display = 'block';
-                displayResults(extractedEvents);
+                saveCache(extractedEvents);
+                cacheNote.style.display = 'none';
+                showResults(extractedEvents);
             } else {
                 errorMessage.style.display = 'block';
                 statusMessage.textContent = 'Erro ao extrair.';
@@ -328,29 +475,42 @@ document.addEventListener('DOMContentLoaded', () => {
             errorMessage.style.display = 'block';
             statusMessage.textContent = 'Falha.';
         }
-    });
+    };
+
+    extractBtn.addEventListener('click', runExtraction);
+    refreshBtn.addEventListener('click', runExtraction);
+
+    /**
+     * Exibe a tela de resultados (esconde o fluxo de extração) e renderiza
+     * tanto a lista quanto a grade semanal.
+     */
+    const showResults = (events) => {
+        statusMessage.style.display = 'none';
+        extractBtn.style.display = 'none';
+        pageWarning.style.display = 'none';
+        resultsContainer.style.display = 'block';
+        selectAllCheckbox.checked = true;
+        displayResults(events);
+        renderWeekGrid(events);
+    };
 
     const displayResults = (events) => {
         classList.innerHTML = '';
-        
-        events.forEach(event => {
-            let firstClassDate;
-            if (event.startDate) {
-                firstClassDate = calculateFirstClassDate(event.startDate, event.day);
-            } else {
-                firstClassDate = calculateFirstClassDate(new Date(), event.day);
-            }
 
+        events.forEach((event, index) => {
+            const firstClassDate = getFirstClassDate(event);
             const googleLink = createGoogleCalendarLink(event, firstClassDate);
             const outlookLink = createOutlookCalendarLink(event, firstClassDate);
 
-            // Cria o elemento do cartão (Card)
             const li = document.createElement('li');
             li.className = 'class-card';
+            li.dataset.index = index;
 
-            // HTML Interno do Card
             li.innerHTML = `
-                <div class="class-title">${event.title}</div>
+                <div class="class-card-header">
+                    <input type="checkbox" class="card-select" data-index="${index}" checked aria-label="Selecionar aula">
+                    <div class="class-title">${event.title}</div>
+                </div>
                 <div class="class-info">
                     <div>
                         <svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
@@ -370,86 +530,144 @@ document.addEventListener('DOMContentLoaded', () => {
                         <svg class="icon" viewBox="0 0 24 24"><path d="M23,12l-2.44-2.79l0.34-3.69l-3.61-0.82L15.4,1.5L12,2.96L8.6,1.5L6.71,4.69L3.1,5.5L3.44,9.2L1,12l2.44,2.79l-0.34,3.7l3.61,0.82L8.6,22.5l3.4-1.47l3.4,1.46l1.89-3.19l3.61-0.82l-0.34-3.69L23,12z M10.09,16.72l-3.8-3.81l1.48-1.48l2.32,2.33l5.85-5.87l1.48,1.48L10.09,16.72z"/></svg>
                         Outlook
                     </a>
+                    <a href="#" class="action-link ics-btn" data-index="${index}">
+                        <svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                        .ics
+                    </a>
                 </div>
             `;
-            
+
             classList.appendChild(li);
         });
     };
 
-    /**
-     * Gera e inicia o download de um arquivo .ics contendo todas as aulas extraídas.
-     */
+    /** Devolve as aulas cujas checkboxes estão marcadas. */
+    const getSelectedEvents = () => {
+        const selected = [];
+        classList.querySelectorAll('.card-select').forEach(cb => {
+            if (cb.checked) selected.push(extractedEvents[parseInt(cb.dataset.index, 10)]);
+        });
+        return selected;
+    };
+
+    // Delegação: cliques no botão .ics individual e mudanças nas checkboxes.
+    classList.addEventListener('click', (e) => {
+        const icsBtn = e.target.closest('.ics-btn');
+        if (icsBtn) {
+            e.preventDefault();
+            const event = extractedEvents[parseInt(icsBtn.dataset.index, 10)];
+            if (event) downloadIcs([event], `${slugifyTitle(event.title)}.ics`);
+        }
+    });
+
+    classList.addEventListener('change', (e) => {
+        const cb = e.target.closest('.card-select');
+        if (!cb) return;
+        const card = cb.closest('.class-card');
+        if (card) card.classList.toggle('deselected', !cb.checked);
+        // Sincroniza o "selecionar todas".
+        const all = classList.querySelectorAll('.card-select');
+        const checked = classList.querySelectorAll('.card-select:checked');
+        selectAllCheckbox.checked = all.length === checked.length;
+    });
+
+    // "Selecionar todas": marca/desmarca todas as checkboxes.
+    selectAllCheckbox.addEventListener('change', () => {
+        classList.querySelectorAll('.card-select').forEach(cb => {
+            cb.checked = selectAllCheckbox.checked;
+            const card = cb.closest('.class-card');
+            if (card) card.classList.toggle('deselected', !cb.checked);
+        });
+    });
+
+    // Exporta o .ics apenas das aulas selecionadas.
     exportIcsBtn.addEventListener('click', () => {
-        if (extractedEvents.length === 0) return;
+        const selected = getSelectedEvents();
+        if (selected.length === 0) {
+            statusMessage.style.display = 'block';
+            statusMessage.textContent = 'Selecione ao menos uma aula para exportar.';
+            return;
+        }
+        downloadIcs(selected, 'grade_horaria_usp.ics');
+    });
 
-        let icsContent = [
-            'BEGIN:VCALENDAR',
-            'VERSION:2.0',
-            'PRODID:-//CalendarUSP//ExportadorGradeHoraria//PT',
-            'CALSCALE:GREGORIAN',
-            'BEGIN:VTIMEZONE',
-            'TZID:America/Sao_Paulo',
-            'BEGIN:STANDARD',
-            'DTSTART:19700101T000000',
-            'TZOFFSETFROM:-0300',
-            'TZOFFSETTO:-0300',
-            'TZNAME:BRT',
-            'END:STANDARD',
-            'END:VTIMEZONE'
-        ];
+    // --- Alternador de visualização lista / grade semanal ---
+    viewListBtn.addEventListener('click', () => {
+        viewListBtn.classList.add('active');
+        viewGridBtn.classList.remove('active');
+        classList.style.display = '';
+        document.querySelector('.select-all-row').style.display = '';
+        weekGrid.style.display = 'none';
+    });
+    viewGridBtn.addEventListener('click', () => {
+        viewGridBtn.classList.add('active');
+        viewListBtn.classList.remove('active');
+        classList.style.display = 'none';
+        document.querySelector('.select-all-row').style.display = 'none';
+        weekGrid.style.display = 'block';
+    });
 
-        extractedEvents.forEach(event => {
-            const dayInitial = getDayInitial(event.day);
-            if (!dayInitial) return;
+    /**
+     * Renderiza uma grade semanal simples: linhas = faixas de horário presentes,
+     * colunas = Seg–Sáb, um bloco colorido por aula.
+     */
+    const renderWeekGrid = (events) => {
+        const days = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+        const dayShort = { 'Segunda-feira': 'Seg', 'Terça-feira': 'Ter', 'Quarta-feira': 'Qua', 'Quinta-feira': 'Qui', 'Sexta-feira': 'Sex', 'Sábado': 'Sáb' };
+        const palette = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#0891b2', '#65a30d'];
 
-            // Calcular primeira aula
-            let firstClassDate;
-            if (event.startDate) {
-                firstClassDate = calculateFirstClassDate(event.startDate, event.day);
-            } else {
-                firstClassDate = calculateFirstClassDate(new Date(), event.day);
+        // Cor estável por disciplina.
+        const colorByCode = {};
+        let colorIdx = 0;
+        const colorFor = (key) => {
+            if (!(key in colorByCode)) {
+                colorByCode[key] = palette[colorIdx % palette.length];
+                colorIdx++;
             }
+            return colorByCode[key];
+        };
 
-            const dtstart = formatDateTimeForCalendar(firstClassDate, event.startTime);
-            const dtend = formatDateTimeForCalendar(firstClassDate, event.endTime);
+        // Faixas de horário distintas, ordenadas.
+        const slotSet = new Set(events.map(e => `${e.startTime}-${e.endTime}`));
+        const slots = Array.from(slotSet).sort();
 
-            // Regra de recorrência
-            let rrule = `RRULE:FREQ=WEEKLY;BYDAY=${dayInitial}`;
-            if (event.endDate) {
-                // Formata UNTIL corretamente para UTC
-                const endD = new Date(event.endDate);
-                const y = endD.getFullYear();
-                const m = (endD.getMonth() + 1).toString().padStart(2, '0');
-                const d = endD.getDate().toString().padStart(2, '0');
+        if (slots.length === 0) {
+            weekGrid.innerHTML = '<p class="cache-note">Sem aulas para exibir.</p>';
+            return;
+        }
 
-                rrule += `;UNTIL=${y}${m}${d}T235959`;
-            } else {
-                rrule += `;COUNT=18`;
-            }
+        let html = '<table class="week-table"><thead><tr><th>Horário</th>';
+        days.forEach(d => { html += `<th>${dayShort[d]}</th>`; });
+        html += '</tr></thead><tbody>';
 
-            icsContent.push(
-                'BEGIN:VEVENT',
-                `DTSTART;TZID=America/Sao_Paulo:${dtstart}`,
-                `DTEND;TZID=America/Sao_Paulo:${dtend}`,
-                rrule,
-                `SUMMARY:${event.title}`,
-                `DESCRIPTION:${event.description.replace(/\n/g, '\\n')}`,
-                `LOCATION:${event.location}`,
-                'END:VEVENT'
-            );
+        slots.forEach(slot => {
+            html += `<tr><td class="time-col">${slot.replace('-', '<br>')}</td>`;
+            days.forEach(day => {
+                const cellEvents = events.filter(e => `${e.startTime}-${e.endTime}` === slot && e.day === day);
+                html += '<td>';
+                cellEvents.forEach(e => {
+                    const color = colorFor(e.code || e.title);
+                    const label = (e.code || e.title || '').toString().slice(0, 12);
+                    html += `<div class="grid-block" style="background-color:${color}" title="${e.title}">${label}</div>`;
+                });
+                html += '</td>';
+            });
+            html += '</tr>';
         });
 
-        icsContent.push('END:VCALENDAR');
+        html += '</tbody></table>';
+        weekGrid.innerHTML = html;
+    };
 
-        const blob = new Blob([icsContent.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'grade_horaria_usp.ics';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    });
+    // --- Inicialização: carrega cache antes de checar a página ---
+    (async () => {
+        const cached = await loadCache();
+        if (cached) {
+            extractedEvents = cached;
+            cacheNote.style.display = 'block';
+            showResults(cached);
+        }
+        // checkActivePage() já é no-op se os resultados estiverem visíveis.
+        checkActivePage();
+    })();
 });

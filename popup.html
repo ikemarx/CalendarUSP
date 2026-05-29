@@ -252,6 +252,150 @@
         }
         .outlook-btn:hover { background-color: #dbeafe; }
 
+        .ics-btn {
+            background-color: #f3f4f6;
+            color: #4b5563;
+        }
+        .ics-btn:hover { background-color: #e5e7eb; }
+
+        /* Barra de ferramentas dos resultados */
+        .results-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .reminder-field {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .reminder-field select {
+            font: inherit;
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background-color: #fff;
+            color: var(--text-main);
+            cursor: pointer;
+        }
+
+        /* Botão de atualizar (recarregar grade) */
+        #refresh-btn {
+            background-color: #eef2ff;
+            color: var(--primary);
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            width: auto;
+        }
+        #refresh-btn:hover { background-color: #e0e7ff; }
+
+        .cache-note {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin: 0 0 12px 0;
+        }
+
+        /* Linha "selecionar todas" */
+        .select-all-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .select-all-row input,
+        .card-select {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        /* Cabeçalho do card com checkbox */
+        .class-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .class-card-header .class-title {
+            flex: 1;
+            margin: 0;
+        }
+        .class-card.deselected {
+            opacity: 0.5;
+        }
+
+        /* Alternador de visualização lista/grade */
+        .view-toggle {
+            display: flex;
+            gap: 0;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .view-toggle button {
+            flex: 1;
+            width: auto;
+            border-radius: 0;
+            box-shadow: none;
+            padding: 8px;
+            font-size: 0.85rem;
+            background-color: #fff;
+            color: var(--text-muted);
+        }
+        .view-toggle button.active {
+            background-color: var(--primary);
+            color: #fff;
+        }
+
+        /* Grade semanal */
+        #week-grid { display: none; overflow-x: auto; margin-bottom: 16px; }
+        .week-table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 0.7rem;
+            table-layout: fixed;
+        }
+        .week-table th, .week-table td {
+            border: 1px solid #e5e7eb;
+            padding: 2px;
+            text-align: center;
+            vertical-align: top;
+        }
+        .week-table th {
+            background-color: #f3f4f6;
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 4px 2px;
+        }
+        .week-table td.time-col {
+            background-color: #f9fafb;
+            color: var(--text-muted);
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .grid-block {
+            border-radius: 4px;
+            padding: 3px;
+            color: #fff;
+            line-height: 1.2;
+            margin: 1px 0;
+            overflow: hidden;
+        }
+
         /* Icons */
         .icon { width: 16px; height: 16px; fill: currentColor; }
 
@@ -291,11 +435,35 @@
         </div>
 
         <div id="results-container">
+            <div class="results-toolbar">
+                <label class="reminder-field">
+                    <span>Lembrete</span>
+                    <select id="reminder-select">
+                        <option value="0">Nenhum</option>
+                        <option value="10">10 min antes</option>
+                        <option value="15" selected>15 min antes</option>
+                        <option value="30">30 min antes</option>
+                        <option value="60">1 h antes</option>
+                    </select>
+                </label>
+                <button id="refresh-btn">
+                    <svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+                    Atualizar
+                </button>
+            </div>
+
+            <p id="cache-note" class="cache-note" style="display:none;">Mostrando a última grade salva. Clique em "Atualizar" no JúpiterWeb para renovar.</p>
+
+            <div class="view-toggle">
+                <button id="view-list-btn" class="active">Lista</button>
+                <button id="view-grid-btn">Grade semanal</button>
+            </div>
+
             <button id="export-ics-btn">
                 <svg class="icon" viewBox="0 0 20 20" style="width:20px;height:20px;">
                     <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                 </svg>
-                Baixar Arquivo .ics
+                Baixar .ics (selecionadas)
             </button>
 
             <div class="tutorial-box">
@@ -304,6 +472,13 @@
                 <a href="https://support.microsoft.com/pt-br/office/importar-ou-subscrever-um-calend%C3%A1rio-no-outlook-com-cff1429c-5af6-41ec-a5b4-74f2c278e98c" target="_blank">Outlook</a>
                 <a href="https://support.apple.com/pt-br/guide/calendar/icl1023/mac" target="_blank">Apple</a>
             </div>
+
+            <div id="week-grid"></div>
+
+            <label class="select-all-row">
+                <input type="checkbox" id="select-all" checked>
+                <span>Selecionar todas as aulas</span>
+            </label>
 
             <ul id="class-list"></ul>
         </div>

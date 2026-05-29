@@ -5,7 +5,8 @@
   "description": "Extrai a grade horária do JúpiterWeb e exporta para o Google Agenda ou arquivo .ics.",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "storage"
   ],
   "action": {
     "default_popup": "popup.html",
