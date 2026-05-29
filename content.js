@@ -71,6 +71,20 @@ function getTextFromSelectors(container, selector) {
 }
 
 /**
+ * Igual a getTextFromSelectors, mas usa textContent em vez de innerText, de
+ * modo a funcionar mesmo quando o elemento está em uma aba oculta (display:none),
+ * caso da aba "Disciplina" quando a "Oferecimento" está ativa.
+ */
+function getTextContentFromSelectors(container, selector) {
+    const elements = container.querySelectorAll(selector);
+    for (const el of elements) {
+        const text = (el.textContent || '').trim();
+        if (text) return text;
+    }
+    return "";
+}
+
+/**
  * Garante que a grade horária esteja carregada. Quando o usuário ainda não
  * clicou em "Buscar", a tabela #tableGradeHoraria existe no DOM mas está vazia
  * (sem cabeçalho renderizado). Nesse caso, clicamos no botão "Buscar" e
@@ -177,9 +191,26 @@ async function extractSchedule() {
         let location = "";
         const specificProfMap = {};
 
+        // Informações extras (em nível de disciplina/turma) para a descrição.
+        let creditosAula = "";
+        let creditosTrabalho = "";
+        let cargaHoraria = "";
+        let codTurma = "";
+        let tipoTurma = "";
+        let obsTurma = "";
+
         if (detailsPanel) {
             const nameElement = detailsPanel.querySelector('.nomdis');
             if (nameElement) fullDisciplineName = nameElement.innerText.trim();
+
+            // Lê créditos e carga horária da aba "Disciplina". Usa textContent
+            // pois essa aba pode estar oculta quando lemos os dados.
+            const divDisciplina = detailsPanel.querySelector('#div_disciplina');
+            if (divDisciplina) {
+                creditosAula = getTextContentFromSelectors(divDisciplina, '.creaul');
+                creditosTrabalho = getTextContentFromSelectors(divDisciplina, '.cretrb');
+                cargaHoraria = getTextContentFromSelectors(divDisciplina, '.cargaHorariaTotal');
+            }
 
             // Clica na aba Oferecimento
             const oferTabLink = detailsPanel.querySelector('a[href="#div_oferecimento"]');
@@ -189,14 +220,19 @@ async function extractSchedule() {
             }
 
             const divOferecimento = detailsPanel.querySelector('#div_oferecimento');
-            
+
             if (divOferecimento) {
                 // CORREÇÃO AQUI: Usa a função auxiliar para ignorar o template vazio
                 const startStr = getTextFromSelectors(divOferecimento, '.dtainitur');
                 const endStr = getTextFromSelectors(divOferecimento, '.dtafimtur');
-                
+
                 startDate = parsePtDate(startStr);
                 endDate = parsePtDate(endStr);
+
+                // Dados da turma para a descrição (template vazio é ignorado).
+                codTurma = getTextFromSelectors(divOferecimento, '.codtur');
+                tipoTurma = getTextFromSelectors(divOferecimento, '.tiptur');
+                obsTurma = getTextFromSelectors(divOferecimento, '.obstur');
 
                 // Mapeamento de professores
                 // Quando o professor é o mesmo em dois dias, o HTML usa rowspan na célula,
@@ -223,10 +259,26 @@ async function extractSchedule() {
         }
 
         const slots = disciplineSlots[disciplineCode];
-        
+
+        // Linhas de descrição em nível de disciplina/turma (iguais para todos
+        // os horários da mesma disciplina). Campos vazios são omitidos.
+        const extraLines = [];
+        if (codTurma) extraLines.push(`Turma: ${codTurma}`);
+        if (tipoTurma) extraLines.push(`Tipo da turma: ${tipoTurma}`);
+        if (creditosAula) extraLines.push(`Créditos aula: ${creditosAula}`);
+        if (creditosTrabalho) extraLines.push(`Créditos trabalho: ${creditosTrabalho}`);
+        if (cargaHoraria) extraLines.push(`Carga horária total: ${cargaHoraria}`);
+        if (obsTurma) extraLines.push(`Observações: ${obsTurma}`);
+
         slots.forEach(slot => {
             const lookupKey = `${slot.day}-${slot.startTime}`;
             const specificProf = specificProfMap[lookupKey] || "Docente não informado";
+
+            const descLines = [
+                `Disciplina: ${disciplineCode}`,
+                `Professor(a): ${specificProf}`,
+                ...extraLines
+            ];
 
             finalEvents.push({
                 title: fullDisciplineName,
@@ -234,11 +286,11 @@ async function extractSchedule() {
                 day: slot.day,
                 startTime: slot.startTime,
                 endTime: slot.endTime,
-                location: location, 
+                location: location,
                 startDate: startDate ? startDate.toISOString() : null,
                 endDate: endDate ? endDate.toISOString() : null,
                 professors: specificProf,
-                description: `Disciplina: ${disciplineCode}\nProfessor(a): ${specificProf}`
+                description: descLines.join('\n')
             });
         });
     }
