@@ -70,7 +70,45 @@ function getTextFromSelectors(container, selector) {
     return "";
 }
 
+/**
+ * Garante que a grade horária esteja carregada. Quando o usuário ainda não
+ * clicou em "Buscar", a tabela #tableGradeHoraria existe no DOM mas está vazia
+ * (sem cabeçalho renderizado). Nesse caso, clicamos no botão "Buscar" e
+ * aguardamos a grade ser renderizada antes de prosseguir.
+ * @returns {Promise<boolean>} true se a grade está pronta para ser lida.
+ */
+async function ensureGradeLoaded() {
+    // Cabeçalho da grade já presente => grade já gerada.
+    if (document.querySelector('.ui-jqgrid-hdiv .jqg-third-row-header')) {
+        return true;
+    }
+
+    // Tenta acionar o botão "Buscar" para gerar a grade.
+    const buscarBtn = document.querySelector('#buscar');
+    if (!buscarBtn) {
+        return false;
+    }
+
+    buscarBtn.click();
+
+    // Aguarda o cabeçalho da grade aparecer (a busca pode levar alguns segundos).
+    const header = await waitForElement('.ui-jqgrid-hdiv .jqg-third-row-header', 15000);
+    if (!header) return false;
+
+    // Dá um instante para as linhas de dados (jqgrow) terminarem de renderizar.
+    await waitForElement('tr.jqgrow', 8000);
+    await new Promise(r => setTimeout(r, 300));
+    return true;
+}
+
 async function extractSchedule() {
+    // Se a grade ainda não foi gerada, clica em "Buscar" e espera carregar.
+    const ready = await ensureGradeLoaded();
+    if (!ready) {
+        console.error("CalendarUSP: não foi possível carregar a grade horária (botão Buscar ausente ou grade não renderizou).");
+        return { success: false, data: [] };
+    }
+
     const scheduleTable = document.querySelector('table#tableGradeHoraria');
     const headerContainer = document.querySelector('.ui-jqgrid-hdiv .jqg-third-row-header');
 
