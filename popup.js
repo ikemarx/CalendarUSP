@@ -4,6 +4,7 @@
  * extração de dados da página, a exibição dos resultados e a geração de links
  * e arquivos de calendário (.ics).
  */
+const browser = globalThis.browser ?? globalThis.chrome;
 document.addEventListener('DOMContentLoaded', () => {
     // --- Seleção de Elementos do DOM ---
     const extractBtn = document.getElementById('extract-btn');
@@ -107,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Content script ainda não injetado: injeta e tenta de novo.
                 await browser.scripting.executeScript({
                     target: { tabId: tab.id },
-                    files: ['browser-polyfill.js', 'content.js']
+                    files: ['content.js']
                 });
                 const response = await browser.tabs.sendMessage(tab.id, { action: "checkPage" });
                 status = response.status;
@@ -454,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {
                 await browser.scripting.executeScript({
                     target: { tabId: tab.id },
-                    files: ['browser-polyfill.js', 'content.js']
+                    files: ['content.js']
                 });
                 response = await browser.tabs.sendMessage(tab.id, { action: "extract" });
             }

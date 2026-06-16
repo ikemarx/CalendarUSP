@@ -3,6 +3,7 @@
  * @description Script injetado na página de grade horária do JúpiterWeb (USP) para
  * extrair as informações das disciplinas e seus respectivos horários.
  */
+const browser = globalThis.browser ?? globalThis.chrome;
 
 /**
  * Mapeia as abreviações dos dias da semana para os nomes completos em português.
