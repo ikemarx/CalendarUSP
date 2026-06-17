@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CalendarUSP",
-  "version": "1.4",
+  "version": "1.4.1",
   "description": "Extrai a grade horária do JúpiterWeb e exporta para o Google Agenda ou arquivo .ics.",
   "permissions": [
     "activeTab",
@@ -24,7 +24,10 @@
 
   "browser_specific_settings": {
     "gecko": {
-      "id": "ikemarx@gmail.com"
+      "id": "ikemarx@gmail.com",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   }
 }

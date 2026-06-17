@@ -354,6 +354,9 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * Sanitiza o título da aula para uso em nome de arquivo.
      */
+    const escapeHtml = (str) =>
+        String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
     const slugifyTitle = (title) =>
         (title || 'aula')
             .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -507,36 +510,79 @@ document.addEventListener('DOMContentLoaded', () => {
             li.className = 'class-card';
             li.dataset.index = index;
 
-            li.innerHTML = `
-                <div class="class-card-header">
-                    <input type="checkbox" class="card-select" data-index="${index}" checked aria-label="Selecionar aula">
-                    <div class="class-title">${event.title}</div>
-                </div>
-                <div class="class-info">
-                    <div>
-                        <svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
-                        <strong>${event.day}</strong> • ${event.startTime} - ${event.endTime}
-                    </div>
-                    <div class="class-prof">
-                        <svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
-                        ${event.professors || 'Prof. não identificado'}
-                    </div>
-                </div>
-                <div class="card-actions">
-                    <a href="${googleLink}" target="_blank" class="action-link google-btn">
-                        <svg class="icon" viewBox="0 0 24 24"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>
-                        Google
-                    </a>
-                    <a href="${outlookLink}" target="_blank" class="action-link outlook-btn">
-                        <svg class="icon" viewBox="0 0 24 24"><path d="M23,12l-2.44-2.79l0.34-3.69l-3.61-0.82L15.4,1.5L12,2.96L8.6,1.5L6.71,4.69L3.1,5.5L3.44,9.2L1,12l2.44,2.79l-0.34,3.7l3.61,0.82L8.6,22.5l3.4-1.47l3.4,1.46l1.89-3.19l3.61-0.82l-0.34-3.69L23,12z M10.09,16.72l-3.8-3.81l1.48-1.48l2.32,2.33l5.85-5.87l1.48,1.48L10.09,16.72z"/></svg>
-                        Outlook
-                    </a>
-                    <a href="#" class="action-link ics-btn" data-index="${index}">
-                        <svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                        .ics
-                    </a>
-                </div>
-            `;
+            // Header
+            const header = document.createElement('div');
+            header.className = 'class-card-header';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'card-select';
+            checkbox.dataset.index = index;
+            checkbox.checked = true;
+            checkbox.setAttribute('aria-label', 'Selecionar aula');
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'class-title';
+            titleDiv.textContent = event.title;
+
+            header.appendChild(checkbox);
+            header.appendChild(titleDiv);
+
+            // Info
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'class-info';
+
+            const scheduleDiv = document.createElement('div');
+            const scheduleIcon = document.createElement('span');
+            scheduleIcon.innerHTML = '<svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>';
+            const dayStrong = document.createElement('strong');
+            dayStrong.textContent = event.day;
+            scheduleDiv.appendChild(scheduleIcon);
+            scheduleDiv.appendChild(dayStrong);
+            scheduleDiv.appendChild(document.createTextNode(` • ${event.startTime} - ${event.endTime}`));
+
+            const profDiv = document.createElement('div');
+            profDiv.className = 'class-prof';
+            const profIcon = document.createElement('span');
+            profIcon.innerHTML = '<svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>';
+            profDiv.appendChild(profIcon);
+            profDiv.appendChild(document.createTextNode(event.professors || 'Prof. não identificado'));
+
+            infoDiv.appendChild(scheduleDiv);
+            infoDiv.appendChild(profDiv);
+
+            // Actions
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'card-actions';
+
+            const googleA = document.createElement('a');
+            googleA.href = googleLink;
+            googleA.target = '_blank';
+            googleA.className = 'action-link google-btn';
+            googleA.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/></svg>';
+            googleA.appendChild(document.createTextNode('Google'));
+
+            const outlookA = document.createElement('a');
+            outlookA.href = outlookLink;
+            outlookA.target = '_blank';
+            outlookA.className = 'action-link outlook-btn';
+            outlookA.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M23,12l-2.44-2.79l0.34-3.69l-3.61-0.82L15.4,1.5L12,2.96L8.6,1.5L6.71,4.69L3.1,5.5L3.44,9.2L1,12l2.44,2.79l-0.34,3.7l3.61,0.82L8.6,22.5l3.4-1.47l3.4,1.46l1.89-3.19l3.61-0.82l-0.34-3.69L23,12z M10.09,16.72l-3.8-3.81l1.48-1.48l2.32,2.33l5.85-5.87l1.48,1.48L10.09,16.72z"/></svg>';
+            outlookA.appendChild(document.createTextNode('Outlook'));
+
+            const icsA = document.createElement('a');
+            icsA.href = '#';
+            icsA.className = 'action-link ics-btn';
+            icsA.dataset.index = index;
+            icsA.innerHTML = '<svg class="icon" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>';
+            icsA.appendChild(document.createTextNode('.ics'));
+
+            actionsDiv.appendChild(googleA);
+            actionsDiv.appendChild(outlookA);
+            actionsDiv.appendChild(icsA);
+
+            li.appendChild(header);
+            li.appendChild(infoDiv);
+            li.appendChild(actionsDiv);
 
             classList.appendChild(li);
         });
@@ -632,32 +678,62 @@ document.addEventListener('DOMContentLoaded', () => {
         const slotSet = new Set(events.map(e => `${e.startTime}-${e.endTime}`));
         const slots = Array.from(slotSet).sort();
 
+        weekGrid.innerHTML = '';
+
         if (slots.length === 0) {
-            weekGrid.innerHTML = '<p class="cache-note">Sem aulas para exibir.</p>';
+            const p = document.createElement('p');
+            p.className = 'cache-note';
+            p.textContent = 'Sem aulas para exibir.';
+            weekGrid.appendChild(p);
             return;
         }
 
-        let html = '<table class="week-table"><thead><tr><th>Horário</th>';
-        days.forEach(d => { html += `<th>${dayShort[d]}</th>`; });
-        html += '</tr></thead><tbody>';
+        const table = document.createElement('table');
+        table.className = 'week-table';
 
-        slots.forEach(slot => {
-            html += `<tr><td class="time-col">${slot.replace('-', '<br>')}</td>`;
-            days.forEach(day => {
-                const cellEvents = events.filter(e => `${e.startTime}-${e.endTime}` === slot && e.day === day);
-                html += '<td>';
-                cellEvents.forEach(e => {
-                    const color = colorFor(e.code || e.title);
-                    const label = (e.code || e.title || '').toString().slice(0, 12);
-                    html += `<div class="grid-block" style="background-color:${color}" title="${e.title}">${label}</div>`;
-                });
-                html += '</td>';
-            });
-            html += '</tr>';
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const thTime = document.createElement('th');
+        thTime.textContent = 'Horário';
+        headerRow.appendChild(thTime);
+        days.forEach(d => {
+            const th = document.createElement('th');
+            th.textContent = dayShort[d];
+            headerRow.appendChild(th);
         });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
 
-        html += '</tbody></table>';
-        weekGrid.innerHTML = html;
+        const tbody = document.createElement('tbody');
+        slots.forEach(slot => {
+            const tr = document.createElement('tr');
+
+            const tdTime = document.createElement('td');
+            tdTime.className = 'time-col';
+            const [slotStart, slotEnd] = slot.split('-');
+            tdTime.appendChild(document.createTextNode(slotStart));
+            tdTime.appendChild(document.createElement('br'));
+            tdTime.appendChild(document.createTextNode(slotEnd));
+            tr.appendChild(tdTime);
+
+            days.forEach(day => {
+                const td = document.createElement('td');
+                const cellEvents = events.filter(e => `${e.startTime}-${e.endTime}` === slot && e.day === day);
+                cellEvents.forEach(e => {
+                    const block = document.createElement('div');
+                    block.className = 'grid-block';
+                    block.style.backgroundColor = colorFor(e.code || e.title);
+                    block.title = e.title;
+                    block.textContent = (e.code || e.title || '').toString().slice(0, 12);
+                    td.appendChild(block);
+                });
+                tr.appendChild(td);
+            });
+
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        weekGrid.appendChild(table);
     };
 
     // --- Inicialização: carrega cache antes de checar a página ---
